@@ -14,6 +14,8 @@ import "types"
 # Get all GKE Instances
 allGkeInstances = plan.find_resources("google_container_cluster")
 
+//******Following code is being used to validate the master_authorized_networks_config block**
+
 violations_masterauth = {}
 for allGkeInstances as address, rc {
 
@@ -33,4 +35,22 @@ for allGkeInstances as address, rc {
 
 GCP_GKE_MASTERAUTH = rule { length(violations_masterauth) is 0 }
 
-main = rule { GCP_GKE_MASTERAUTH }
+
+//******Following code is being used to validate the master_ipv4_cidr_block settings**
+violations_master_cidr = {}
+for allGkeInstances as address, rc {
+
+    key = "private_cluster_config.0.master_ipv4_cidr_block"
+	selected_node = plan.evaluate_attribute(rc.change.after, key)
+	
+    if types.type_of(selected_node) is "null" or types.type_of(selected_node) is "undefined" or selected_node is "" {
+        
+        violations_master_cidr[address] = rc
+		print(key + " can not be null/blank.")
+    }   
+    
+}
+
+GCP_GKE_PRIVATECLUSTER = rule { length(violations_master_cidr) is 0 }
+
+main = rule { GCP_GKE_MASTERAUTH and GCP_GKE_PRIVATECLUSTER }
